@@ -3,23 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test System</title>
+    <title>Database Connection Test</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
-        body { background: #1e272e; color: white; font-family: sans-serif; text-align: center; margin-top: 50px; }
-        #gift-box { font-size: 50px; cursor: pointer; }
-        #timer { font-size: 80px; color: #ff4757; display: none; }
-        button { padding: 10px 20px; font-size: 20px; cursor: pointer; }
+        body { 
+            background: #1e272e; 
+            color: white; 
+            font-family: sans-serif; 
+            text-align: center; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        button { 
+            padding: 15px 30px; 
+            font-size: 20px; 
+            cursor: pointer; 
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 8px;
+        }
+        button:hover { background: #ff6b81; }
+        #status { margin-top: 20px; font-size: 18px; color: #ced6e0; }
     </style>
 </head>
 <body>
 
-    <div id="gift-box" onclick="runTest()">
-        🎁 <br>
-        <button>Click to Test Database (No Camera)</button>
+    <div>
+        <h1>System Check</h1>
+        <p>Click below to verify database connection.</p>
+        <button onclick="runTest()">🔴 Test Connection</button>
     </div>
 
-    <div id="timer">10</div>
     <p id="status"></p>
 
     <script>
@@ -27,43 +46,38 @@
         const SUPABASE_URL = 'https://mlcbjfnimbpatmbcgwsq.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_J1WdZTnnDUCBE6bsTf2brQ_qRlXL_1Z'; 
         
+        // Initialize Supabase (Sirf ek baar)
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        function runTest() {
-            document.getElementById('gift-box').style.display = 'none';
-            document.getElementById('timer').style.display = 'block';
-            document.getElementById('status').innerText = "Testing Timer...";
+        async function runTest() {
+            const statusText = document.getElementById('status');
+            statusText.innerText = "Connecting to Supabase...";
+            statusText.style.color = "yellow";
 
-            let count = 10;
-            const interval = setInterval(() => {
-                count--;
-                document.getElementById('timer').innerText = count;
+            console.log("Starting test...");
 
-                if (count <= 0) {
-                    clearInterval(interval);
-                    sendFakeData();
+            // 1. Fake Image Data send karna
+            const fakeImage = "https://placehold.co/600x400/png?text=Test+Success";
+
+            try {
+                const { error } = await supabase
+                    .from('captured_photos')
+                    .insert([{ image_url: fakeImage }]);
+
+                if (error) {
+                    console.error("Supabase Error:", error);
+                    statusText.innerText = "Error: " + error.message;
+                    statusText.style.color = "red";
+                    alert("Database Error! Check Console.");
+                } else {
+                    console.log("Success!");
+                    statusText.innerText = "✅ Connection Successful! Data sent to Admin.";
+                    statusText.style.color = "#2ed573";
+                    alert("کامیاب! ڈیٹا بیس کنیکٹ ہو گیا ہے۔ اب ایڈمن پینل چیک کریں۔");
                 }
-            }, 1000); // 1 second speed
-        }
-
-        async function sendFakeData() {
-            document.getElementById('status').innerText = "Sending test data to Admin...";
-
-            // Fake Image URL (Just to test connection)
-            const fakeImage = "https://placehold.co/600x400/png";
-
-            // Insert into Supabase
-            const { error } = await supabase
-                .from('captured_photos')
-                .insert([{ image_url: fakeImage }]);
-
-            if (error) {
-                console.error(error);
-                alert("Database Error: " + error.message + "\n(Check your Table Name or RLS Policies)");
-                document.getElementById('status').innerText = "Failed: " + error.message;
-            } else {
-                alert("Success! Data sent. Check Admin Page now.");
-                document.getElementById('status').innerText = "Data Sent Successfully!";
+            } catch (err) {
+                console.error("Network Error:", err);
+                statusText.innerText = "Network Error: " + err.message;
             }
         }
     </script>
