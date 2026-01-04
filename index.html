@@ -2,82 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Connection Test</title>
+    <title>Final Test</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <style>
-        body { 
-            background: #1e272e; 
-            color: white; 
-            font-family: sans-serif; 
-            text-align: center; 
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        button { 
-            padding: 15px 30px; 
-            font-size: 20px; 
-            cursor: pointer; 
-            background: #ff4757;
-            color: white;
-            border: none;
-            border-radius: 8px;
-        }
-        button:hover { background: #ff6b81; }
-        #status { margin-top: 20px; font-size: 18px; color: #ced6e0; }
-    </style>
 </head>
-<body>
+<body style="background-color: #222; color: white; text-align: center; font-family: sans-serif; padding-top: 50px;">
 
-    <div>
-        <h1>System Check</h1>
-        <p>Click below to verify database connection.</p>
-        <button onclick="runTest()">🔴 Test Connection</button>
-    </div>
+    <h1>Supabase Connection Check</h1>
+    <p>Open this page and click the button.</p>
 
-    <p id="status"></p>
+    <button onclick="sendData()" style="padding: 15px 30px; font-size: 20px; cursor: pointer; background: green; color: white; border: none;">
+        CLICK ME TO TEST
+    </button>
+
+    <p id="msg" style="margin-top: 20px; font-size: 18px;">Waiting...</p>
 
     <script>
-        // --- SUPABASE CONFIG ---
+        // 1. سب سے پہلے یہ چیک کریں کہ جاوا اسکرپٹ چل رہی ہے یا نہیں
+        alert("System Ready! Code is working.");
+
+        // --- SUPABASE SETTINGS ---
         const SUPABASE_URL = 'https://mlcbjfnimbpatmbcgwsq.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_J1WdZTnnDUCBE6bsTf2brQ_qRlXL_1Z'; 
         
-        // Initialize Supabase (Sirf ek baar)
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Supabase کو کنیکٹ کرنا
+        let supabase;
+        try {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            console.log("Supabase initialized");
+        } catch (err) {
+            alert("Error: Supabase library not loaded. Check Internet.");
+        }
 
-        async function runTest() {
-            const statusText = document.getElementById('status');
-            statusText.innerText = "Connecting to Supabase...";
-            statusText.style.color = "yellow";
+        async function sendData() {
+            const msgBox = document.getElementById('msg');
+            msgBox.innerText = "Connecting...";
+            msgBox.style.color = "yellow";
 
-            console.log("Starting test...");
+            console.log("Button Clicked. Sending data...");
 
-            // 1. Fake Image Data send karna
-            const fakeImage = "https://placehold.co/600x400/png?text=Test+Success";
+            // ڈمی ڈیٹا بھیجنا
+            const { error } = await supabase
+                .from('captured_photos')
+                .insert([{ image_url: "https://placehold.co/100x100/png?text=Success" }]);
 
-            try {
-                const { error } = await supabase
-                    .from('captured_photos')
-                    .insert([{ image_url: fakeImage }]);
-
-                if (error) {
-                    console.error("Supabase Error:", error);
-                    statusText.innerText = "Error: " + error.message;
-                    statusText.style.color = "red";
-                    alert("Database Error! Check Console.");
-                } else {
-                    console.log("Success!");
-                    statusText.innerText = "✅ Connection Successful! Data sent to Admin.";
-                    statusText.style.color = "#2ed573";
-                    alert("کامیاب! ڈیٹا بیس کنیکٹ ہو گیا ہے۔ اب ایڈمن پینل چیک کریں۔");
-                }
-            } catch (err) {
-                console.error("Network Error:", err);
-                statusText.innerText = "Network Error: " + err.message;
+            if (error) {
+                console.error(error);
+                alert("Database Error: " + error.message);
+                msgBox.innerText = "Failed: " + error.message;
+            } else {
+                alert("Mubarak Ho! Data sent successfully.");
+                msgBox.innerText = "✅ Data Sent! Check Admin Page.";
+                msgBox.style.color = "#00ff00";
             }
         }
     </script>
